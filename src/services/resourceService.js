@@ -1,55 +1,40 @@
 // src/services/resourceService.js
+import { collection, doc, addDoc, updateDoc, deleteDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db, appId } from './firebase';
-import { collection, onSnapshot, doc, addDoc, setDoc, deleteDoc } from 'firebase/firestore';
 
-/**
- * Cria um listener em tempo real para uma coleção do Firestore.
- * @param {string} collectionName - O nome da coleção a ser ouvida.
- * @param {function} callback - Função a ser chamada com os dados atualizados.
- * @returns {function} Uma função para cancelar a subscrição (unsubscribe).
- */
-const get = (collectionName, callback) => {
-    const collectionPath = `artifacts/${appId}/public/data/${collectionName}`;
-    const q = collection(db, collectionPath);
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-        const items = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-        }));
-        callback(items);
-    }, (error) => {
-        console.error(`Erro ao buscar a coleção ${collectionName} em ${collectionPath}:`, error);
-        callback([], error); // Retorna array vazio em caso de erro
-    });
-    return unsubscribe;
-};
+const resourceService = {
+    save: async (resourceType, resourceData, user) => {
+        const { id, ...dataToSave } = resourceData;
+        const collectionPath = `artifacts/${appId}/public/data/${resourceType}`;
+        
+        const metadata = {
+            lastModifiedAt: serverTimestamp(),
+            lastModifiedBy: user ? user.name : 'Sistema'
+        };
 
-/**
- * Salva (cria ou atualiza) um documento numa coleção.
- * @param {string} collectionName - O nome da coleção.
- * @param {object} data - O objeto de dados a ser salvo. Deve conter um 'id' para atualização.
- */
-const save = async (collectionName, data) => {
-    const collectionPath = `artifacts/${appId}/public/data/${collectionName}`;
-    const dataToSave = { ...data };
-
-    if (dataToSave.id) {
-        const docRef = doc(db, collectionPath, dataToSave.id);
-        delete dataToSave.id; // Não guardar o ID dentro do documento
-        await setDoc(docRef, dataToSave, { merge: true });
-    } else {
-        await addDoc(collection(db, collectionPath), dataToSave);
+        try {
+            if (id) {
+                // Se um ID for fornecido (como a data da nota diária),
+                // usamos setDoc, que CRIA se não existir ou ATUALIZA se existir.
+                await setDoc(doc(db, collectionPath, id), { ...dataToSave, ...metadata });
+            } else {
+                // Se não houver ID, o Firebase gera um automaticamente.
+                await addDoc(collection(db, collectionPath), { ...dataToSave, ...metadata, createdAt: serverTimestamp() });
+            }
+        } catch (error) {
+            console.error("Error saving resource:", error);
+            throw error;
+        }
+    },
+    delete: async (resourceType, id) => {
+        if (!id || !resourceType) return;
+        try {
+            await deleteDoc(doc(db, `artifacts/${appId}/public/data/${resourceType}`, id));
+        } catch (error) {
+            console.error("Error deleting resource: ", error);
+            throw error;
+        }
     }
 };
 
-/**
- * Exclui um documento de uma coleção.
- * @param {string} collectionName - O nome da coleção.
- * @param {string} id - O ID do documento a ser excluído.
- */
-const remove = async (collectionName, id) => {
-    const collectionPath = `artifacts/${appId}/public/data/${collectionName}`;
-    await deleteDoc(doc(db, collectionPath, id));
-};
-
-export default { get, save, remove };
+export default resourceService;
