@@ -1,4 +1,4 @@
-import { db } from '../firebaseConfig';
+import { db } from 'firebaseConfig'; // Corrigido: Usando o caminho absoluto a partir de 'src', conforme jsconfig.json
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 
 /**
@@ -7,8 +7,16 @@ import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase
  * @returns {Promise<Array>} Uma lista de documentos.
  */
 export const getAll = async (resource) => {
-    const querySnapshot = await getDocs(collection(db, resource));
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    console.log(`Buscando todos os documentos da coleção: ${resource}`); // Log adicionado
+    try {
+        const querySnapshot = await getDocs(collection(db, resource));
+        const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        console.log(`Dados de '${resource}' carregados com sucesso.`); // Log adicionado
+        return data;
+    } catch (error) {
+        console.error(`Erro ao buscar dados de '${resource}':`, error); // Log de erro
+        throw error; // Propaga o erro para ser tratado no DataContext
+    }
 };
 
 /**
