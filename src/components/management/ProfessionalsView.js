@@ -27,7 +27,7 @@ const ProfessionalsView = ({ onEdit, onSetUnavailability }) => {
         });
     }, [allProfessionals, searchQuery, allSkills]);
 
-    const hasFutureUnavailability = (professional) => unavailabilities.some(unav => unav.resourceType === 'professional' && unav.resourceName === professional.name && isFuture(parseISO(unav.end)));
+    const hasFutureUnavailability = (professional) => unavailabilities?.some(unav => unav.resourceType === 'professional' && unav.resourceName === professional.name && isFuture(parseISO(unav.end))) ?? false;
     const handleDelete = (item) => { if (window.confirm(`Tem a certeza que quer apagar "${item.name}"? Esta ação não pode ser revertida.`)) resourceService.delete('professionals', item.id); };
 
     return (

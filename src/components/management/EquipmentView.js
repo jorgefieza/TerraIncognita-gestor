@@ -11,11 +11,14 @@ const EquipmentView = ({ onEdit, onSetUnavailability }) => {
     const { permissions } = useAuth();
 
     const hasFutureUnavailability = (equipment) => {
-        return unavailabilities.some(unav => 
+        // A variável `unavailabilities` pode ser `undefined` ao carregar.
+        // O optional chaining (?.) previne o erro ao tentar aceder a `.some`.
+        // O nullish coalescing (?? false) garante que o resultado seja `false` se `unavailabilities` não existir.
+        return unavailabilities?.some(unav => 
             unav.resourceType === 'equipment' &&
             unav.resourceName === equipment.name && 
             isFuture(parseISO(unav.end))
-        );
+        ) ?? false;
     };
 
     const handleDelete = (item) => {
