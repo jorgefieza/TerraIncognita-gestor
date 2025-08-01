@@ -1,40 +1,43 @@
-// src/services/resourceService.js
-import { collection, doc, addDoc, updateDoc, deleteDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db, appId } from './firebase';
+import { db } from '../firebaseConfig';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 
-const resourceService = {
-    save: async (resourceType, resourceData, user) => {
-        const { id, ...dataToSave } = resourceData;
-        const collectionPath = `artifacts/${appId}/public/data/${resourceType}`;
-        
-        const metadata = {
-            lastModifiedAt: serverTimestamp(),
-            lastModifiedBy: user ? user.name : 'Sistema'
-        };
-
-        try {
-            if (id) {
-                // Se um ID for fornecido (como a data da nota diária),
-                // usamos setDoc, que CRIA se não existir ou ATUALIZA se existir.
-                await setDoc(doc(db, collectionPath, id), { ...dataToSave, ...metadata });
-            } else {
-                // Se não houver ID, o Firebase gera um automaticamente.
-                await addDoc(collection(db, collectionPath), { ...dataToSave, ...metadata, createdAt: serverTimestamp() });
-            }
-        } catch (error) {
-            console.error("Error saving resource:", error);
-            throw error;
-        }
-    },
-    delete: async (resourceType, id) => {
-        if (!id || !resourceType) return;
-        try {
-            await deleteDoc(doc(db, `artifacts/${appId}/public/data/${resourceType}`, id));
-        } catch (error) {
-            console.error("Error deleting resource: ", error);
-            throw error;
-        }
-    }
+/**
+ * Busca todos os documentos de uma coleção.
+ * @param {string} resource - O nome da coleção.
+ * @returns {Promise<Array>} Uma lista de documentos.
+ */
+export const getAll = async (resource) => {
+    const querySnapshot = await getDocs(collection(db, resource));
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
 
-export default resourceService;
+/**
+ * Adiciona um novo documento a uma coleção.
+ * @param {string} resource - O nome da coleção.
+ * @param {object} data - O objeto a ser adicionado.
+ * @returns {Promise<string>} O ID do novo documento.
+ */
+export const add = async (resource, data) => {
+    const docRef = await addDoc(collection(db, resource), data);
+    return docRef.id;
+};
+
+/**
+ * Atualiza um documento existente.
+ * @param {string} resource - O nome da coleção.
+ * @param {string} id - O ID do documento a ser atualizado.
+ * @param {object} data - Os novos dados do documento.
+ */
+export const update = async (resource, id, data) => {
+    const docRef = doc(db, resource, id);
+    await updateDoc(docRef, data);
+};
+
+/**
+ * Remove um documento.
+ * @param {string} resource - O nome da coleção.
+ * @param {string} id - O ID do documento a ser removido.
+ */
+export const remove = async (resource, id) => {
+    await deleteDoc(doc(db, resource, id));
+};
