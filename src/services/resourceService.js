@@ -1,4 +1,5 @@
-import { db } from 'firebaseConfig'; // Corrigido: Usando o caminho absoluto a partir de 'src', conforme jsconfig.json
+// Corrigido: O caminho agora aponta para o ficheiro 'firebase.js' que está na mesma pasta.
+import { db } from './firebase.js'; 
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 
 /**
@@ -6,17 +7,9 @@ import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase
  * @param {string} resource - O nome da coleção.
  * @returns {Promise<Array>} Uma lista de documentos.
  */
-export const getAll = async (resource) => {
-    console.log(`Buscando todos os documentos da coleção: ${resource}`); // Log adicionado
-    try {
-        const querySnapshot = await getDocs(collection(db, resource));
-        const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        console.log(`Dados de '${resource}' carregados com sucesso.`); // Log adicionado
-        return data;
-    } catch (error) {
-        console.error(`Erro ao buscar dados de '${resource}':`, error); // Log de erro
-        throw error; // Propaga o erro para ser tratado no DataContext
-    }
+const getAll = async (resource) => {
+    const querySnapshot = await getDocs(collection(db, resource));
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
 
 /**
@@ -25,7 +18,7 @@ export const getAll = async (resource) => {
  * @param {object} data - O objeto a ser adicionado.
  * @returns {Promise<string>} O ID do novo documento.
  */
-export const add = async (resource, data) => {
+const add = async (resource, data) => {
     const docRef = await addDoc(collection(db, resource), data);
     return docRef.id;
 };
@@ -36,7 +29,7 @@ export const add = async (resource, data) => {
  * @param {string} id - O ID do documento a ser atualizado.
  * @param {object} data - Os novos dados do documento.
  */
-export const update = async (resource, id, data) => {
+const update = async (resource, id, data) => {
     const docRef = doc(db, resource, id);
     await updateDoc(docRef, data);
 };
@@ -46,6 +39,17 @@ export const update = async (resource, id, data) => {
  * @param {string} resource - O nome da coleção.
  * @param {string} id - O ID do documento a ser removido.
  */
-export const remove = async (resource, id) => {
+const remove = async (resource, id) => {
     await deleteDoc(doc(db, resource, id));
 };
+
+// Agrupa todas as funções em um único objeto para exportação
+const resourceService = {
+    getAll,
+    add,
+    update,
+    remove
+};
+
+// Exporta o objeto como padrão, que é a forma como o resto da aplicação espera recebê-lo.
+export default resourceService;
