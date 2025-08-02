@@ -12,22 +12,28 @@ const ClientEditModal = ({ isOpen, onClose, client }) => {
             setFormData({ name: '', nif: '', email: '', phone: '', type: 'Agência' });
         }
     }, [client, isOpen]);
+    
+    // A verificação `if (!isOpen)` está depois dos hooks, que é o correto.
+    if (!isOpen) return null;
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!formData.name) {
             alert("O nome do cliente é obrigatório.");
             return;
         }
-        resourceService.save('clients', formData);
-        onClose();
+        try {
+            await resourceService.save('clients', formData);
+            onClose();
+        } catch (error) {
+            console.error("Erro ao guardar o cliente:", error);
+            alert("Ocorreu um erro ao guardar o cliente. Verifique a consola para mais detalhes.");
+        }
     };
-
-    if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">

@@ -60,8 +60,13 @@ export const calculateLayout = (events, calendarStartHour, visibleHoursCount) =>
                 let height = ((endMinutes - startMinutes) / totalVisibleMinutes) * 100;
                 if (height < 3) height = 3;
 
+                // ===== MELHORIA NO LAYOUT PARALELO =====
+                // Adiciona um pequeno espaçamento entre os eventos
+                const eventWidth = groupWidth - 1; // Deixa 1% de margem
+                const eventLeft = colIndex * groupWidth;
+
                 if (top < 100) {
-                    layout.push({ ...event, top: `${top}%`, height: `${height}%`, left: `${colIndex * groupWidth}%`, width: `${groupWidth}%` });
+                    layout.push({ ...event, top: `${top}%`, height: `${height}%`, left: `${eventLeft}%`, width: `${eventWidth}%` });
                 }
             });
         });

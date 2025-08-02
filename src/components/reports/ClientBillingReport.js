@@ -18,10 +18,10 @@ const ClientBillingReport = () => {
         const start = parseISO(startDate);
         const end = parseISO(endDate);
 
-        const relevantClients = allClients.filter(c => ['Agência', 'Comercial'].includes(c.type));
+        const relevantClients = (allClients || []).filter(c => ['Agência', 'Comercial'].includes(c.type));
         const relevantClientIds = relevantClients.map(c => c.id);
 
-        const filteredEvents = events.filter(event => {
+        const filteredEvents = (events || []).filter(event => {
             if (!event.financialDetails || !event.clientId || !relevantClientIds.includes(event.clientId)) {
                 return false;
             }
@@ -44,17 +44,22 @@ const ClientBillingReport = () => {
 
         const finalReport = Object.keys(groupedByClient).map(clientId => {
             const clientEvents = groupedByClient[clientId];
-            const clientInfo = allClients.find(c => c.id === clientId);
+            const clientInfo = (allClients || []).find(c => c.id === clientId);
             let totalGross = 0;
             let totalCommission = 0;
             let totalTaxable = 0;
             let totalIvaAmount = 0;
+            let paidEventCount = 0; // <-- ADICIONADO: Contador de eventos pagos
 
             clientEvents.forEach(event => {
-                const { grossValue, commissionType, commissionValue, iva } = event.financialDetails;
+                const { grossValue, commissionType, commissionValue, iva, isPaid } = event.financialDetails;
                 const gross = parseFloat(grossValue) || 0;
                 const commValue = parseFloat(commissionValue) || 0;
                 const ivaRate = parseFloat(iva) || 0;
+
+                if (isPaid) { // <-- ADICIONADO: Incrementa se o evento estiver pago
+                    paidEventCount++;
+                }
 
                 totalGross += gross;
 
@@ -71,6 +76,17 @@ const ClientBillingReport = () => {
                 totalTaxable += taxableAmount;
                 totalIvaAmount += ivaAmount;
             });
+            
+            // ===== CORREÇÃO: Lógica para determinar o status de pagamento =====
+            let paymentStatus = 'Não Pago';
+            if (clientEvents.length > 0) {
+                if (paidEventCount === clientEvents.length) {
+                    paymentStatus = 'Pago';
+                } else if (paidEventCount > 0) {
+                    paymentStatus = 'Parcial';
+                }
+            }
+            // ==============================================================
 
             return {
                 clientId,
@@ -80,7 +96,8 @@ const ClientBillingReport = () => {
                 totalCommission,
                 totalTaxable,
                 totalIvaAmount,
-                totalToBill: totalTaxable + totalIvaAmount
+                totalToBill: totalTaxable + totalIvaAmount,
+                paymentStatus // <-- ADICIONADO: Status de pagamento para o relatório
             };
         });
 
@@ -99,6 +116,7 @@ const ClientBillingReport = () => {
             const dataToExport = reportData.map(row => ({
                 'Cliente': row.clientName,
                 'N Eventos': row.eventCount,
+                'Status Pagamento': row.paymentStatus, // <-- ADICIONADO: Coluna no CSV
                 'Valor Bruto (€)': row.totalGross.toFixed(2),
                 'Comissoes (€)': row.totalCommission.toFixed(2),
                 'Base Tributavel (€)': row.totalTaxable.toFixed(2),
@@ -109,6 +127,16 @@ const ClientBillingReport = () => {
             downloadCsv(csvString, `relatorio_faturacao_${startDate}_a_${endDate}.csv`);
         } else {
             alert(`A exportação para ${format.toUpperCase()} será implementada em breve!`);
+        }
+    };
+    
+    // Função para obter a cor do status
+    const getStatusClass = (status) => {
+        switch (status) {
+            case 'Pago': return 'bg-green-100 text-green-800';
+            case 'Parcial': return 'bg-yellow-100 text-yellow-800';
+            case 'Não Pago': return 'bg-red-100 text-red-800';
+            default: return 'bg-gray-100 text-gray-800';
         }
     };
 
@@ -149,6 +177,8 @@ const ClientBillingReport = () => {
                     <tr className="bg-gray-100">
                         <th className="p-2 text-sm font-semibold text-gray-700 border-b">Cliente</th>
                         <th className="p-2 text-sm font-semibold text-gray-700 border-b text-center">Eventos</th>
+                        {/* ===== NOVA COLUNA ADICIONADA ===== */}
+                        <th className="p-2 text-sm font-semibold text-gray-700 border-b">Status Pagamento</th>
                         <th className="p-2 text-sm font-semibold text-gray-700 border-b">Valor Bruto</th>
                         <th className="p-2 text-sm font-semibold text-gray-700 border-b">Comissões</th>
                         <th className="p-2 text-sm font-semibold text-gray-700 border-b">Base Tributável</th>
@@ -159,13 +189,19 @@ const ClientBillingReport = () => {
                 <tbody>
                     {reportData.length === 0 ? (
                         <tr>
-                            <td colSpan="7" className="text-center py-8 text-gray-500">Nenhum dado para o período selecionado.</td>
+                            <td colSpan="8" className="text-center py-8 text-gray-500">Nenhum dado para o período selecionado.</td>
                         </tr>
                     ) : (
                         reportData.map(row => (
                             <tr key={row.clientId}>
                                 <td className="p-2 border-b">{row.clientName}</td>
                                 <td className="p-2 border-b text-center">{row.eventCount}</td>
+                                {/* ===== NOVA CÉLULA ADICIONADA ===== */}
+                                <td className="p-2 border-b">
+                                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusClass(row.paymentStatus)}`}>
+                                        {row.paymentStatus}
+                                    </span>
+                                </td>
                                 <td className="p-2 border-b">{row.totalGross.toFixed(2)} €</td>
                                 <td className="p-2 border-b text-red-600">-{row.totalCommission.toFixed(2)} €</td>
                                 <td className="p-2 border-b font-medium">{row.totalTaxable.toFixed(2)} €</td>

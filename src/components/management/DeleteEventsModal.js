@@ -1,7 +1,7 @@
 // src/components/management/DeleteEventsModal.js
 import React, { useState, useMemo } from 'react';
 import { useData } from '../../contexts/DataContext';
-import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, subMonths, addMonths, isSameDay, isWithinInterval, isSameMonth } from 'date-fns';
+import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameDay, isWithinInterval, isSameMonth, subMonths, addMonths } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { ChevronLeftIcon, ChevronRightIcon } from '../core/Icons';
 

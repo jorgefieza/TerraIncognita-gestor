@@ -6,11 +6,9 @@ const UserEditModal = ({ isOpen, onClose, user }) => {
     const [formData, setFormData] = useState({});
 
     useEffect(() => {
-        // Se recebermos um utilizador, estamos a editar. Senão, estamos a adicionar.
         if (user) {
             setFormData(user);
         } else {
-            // Estado inicial para um novo utilizador
             setFormData({
                 name: '',
                 email: '',
@@ -19,6 +17,10 @@ const UserEditModal = ({ isOpen, onClose, user }) => {
             });
         }
     }, [user, isOpen]);
+
+    // ===== CORREÇÃO APLICADA AQUI =====
+    // A verificação `if (!isOpen)` foi movida para depois dos hooks.
+    if (!isOpen) return null;
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -33,8 +35,6 @@ const UserEditModal = ({ isOpen, onClose, user }) => {
         resourceService.save('users', formData);
         onClose();
     };
-
-    if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">

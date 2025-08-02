@@ -29,6 +29,9 @@ const UnavailabilityModal = ({ isOpen, onClose, resource }) => {
         }
     }, [isOpen]);
 
+    // A verificação foi movida para depois dos hooks, que é o correto.
+    if (!isOpen) return null;
+
     const handleDayClick = (day) => {
         if (!range.start || (range.start && range.end)) {
             setRange({ start: day, end: null });
@@ -77,8 +80,6 @@ const UnavailabilityModal = ({ isOpen, onClose, resource }) => {
             await eventService.delete(unavailabilityId);
         }
     };
-
-    if (!isOpen) return null;
 
     const monthStart = startOfMonth(displayMonth);
     const monthEnd = endOfMonth(displayMonth);

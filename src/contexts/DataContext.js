@@ -1,5 +1,7 @@
+// src/contexts/DataContext.js
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
+import eventService from '../services/eventService';
 import resourceService from '../services/resourceService';
 
 const DataContext = createContext();
@@ -10,109 +12,111 @@ export const useData = () => {
 
 export const DataProvider = ({ children }) => {
     const { user } = useAuth();
-    // Estados para todas as coleções de dados da aplicação
-    const [projects, setProjects] = useState([]);
     const [events, setEvents] = useState([]);
-    const [resources, setResources] = useState([]);
     const [clients, setClients] = useState([]);
     const [docks, setDocks] = useState([]);
     const [professionals, setProfessionals] = useState([]);
     const [equipment, setEquipment] = useState([]);
     const [products, setProducts] = useState([]);
     const [skills, setSkills] = useState([]);
-    
+    const [users, setUsers] = useState([]);
+    const [unavailabilities, setUnavailabilities] = useState([]);
+    const [dataVersion, setDataVersion] = useState(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    const subscribeToData = useCallback(async () => {
-        if (user) {
-            setLoading(true);
-            setError(null);
-            try {
-                // Carrega todas as coleções de dados em paralelo para máxima eficiência
-                const [
-                    projectsData, 
-                    eventsData, 
-                    resourcesData, 
-                    clientsData,
-                    docksData,
-                    professionalsData,
-                    equipmentData,
-                    productsData,
-                    skillsData
-                ] = await Promise.all([
-                    resourceService.getAll('projects'),
-                    resourceService.getAll('tasks'),
-                    resourceService.getAll('resources'),
-                    resourceService.getAll('clients'),
-                    resourceService.getAll('docks'),
-                    resourceService.getAll('professionals'),
-                    resourceService.getAll('equipment'),
-                    resourceService.getAll('products'),
-                    resourceService.getAll('skills')
-                ]);
-
-                // Filtra os projetos que pertencem ao utilizador logado
-                const userProjects = projectsData.filter(p => p.userId === user.uid);
-                setProjects(userProjects);
-
-                const userProjectIds = userProjects.map(p => p.id);
-
-                // Filtra os dados que estão diretamente ligados a um projeto
-                setEvents(eventsData.filter(e => userProjectIds.includes(e.projectId)));
-                setResources(resourcesData.filter(r => userProjectIds.includes(r.projectId)));
-                setClients(clientsData.filter(c => userProjectIds.includes(c.projectId)));
-                
-                // Define os dados globais (não filtrados por projeto)
-                setDocks(docksData);
-                setProfessionals(professionalsData);
-                setEquipment(equipmentData);
-                setProducts(productsData);
-                setSkills(skillsData);
-
-            } catch (error) {
-                console.error("Falha ao carregar os dados:", error);
-                setError(error);
-            } finally {
-                setLoading(false);
-            }
-        } else {
-            // Limpa todos os dados quando o utilizador faz logout
-            setProjects([]);
+    useEffect(() => {
+        if (!user) {
             setEvents([]);
-            setResources([]);
             setClients([]);
             setDocks([]);
             setProfessionals([]);
             setEquipment([]);
             setProducts([]);
             setSkills([]);
+            setUsers([]);
+            setUnavailabilities([]);
             setLoading(false);
+            return;
         }
+
+        setLoading(true);
+        
+        // ===== CORREÇÃO APLICADA AQUI =====
+        // A chamada a `eventService.get` agora recebe apenas um argumento (o callback), como esperado.
+        const unsubscribeEvents = eventService.get((eventsData, err) => {
+            if (err) {
+                console.error("Erro ao carregar eventos:", err);
+                setError(err);
+                return;
+            }
+            setEvents(eventsData);
+            const unavs = eventsData.filter(e => e.type === 'Indisponibilidade');
+            setUnavailabilities(unavs);
+            setDataVersion(v => v + 1);
+        });
+
+        const fetchStaticData = async () => {
+            try {
+                const [
+                    clientsData,
+                    docksData,
+                    professionalsData,
+                    equipmentData,
+                    productsData,
+                    skillsData,
+                    usersData
+                ] = await Promise.all([
+                    resourceService.getAll('clients'),
+                    resourceService.getAll('docks'),
+                    resourceService.getAll('professionals'),
+                    resourceService.getAll('equipment'),
+                    resourceService.getAll('products'),
+                    resourceService.getAll('skills'),
+                    resourceService.getAll('users')
+                ]);
+
+                setClients(clientsData);
+                setDocks(docksData);
+                setProfessionals(professionalsData);
+                setEquipment(equipmentData);
+                setProducts(productsData);
+                setSkills(skillsData);
+                setUsers(usersData);
+                
+            } catch (err) {
+                console.error("Falha ao carregar dados estáticos:", err);
+                setError(err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchStaticData();
+
+        return () => {
+            unsubscribeEvents();
+        };
     }, [user]);
+    
+    const refreshData = useCallback(() => {
+       // A lógica pode ser adicionada aqui se houver um caso de uso para isso.
+    }, []);
 
-    useEffect(() => {
-        subscribeToData();
-    }, [subscribeToData]);
-
-    const refreshData = () => {
-        subscribeToData();
-    };
-
-    // Disponibiliza todos os dados para o resto da aplicação
     const contextValue = {
-        projects,
         events,
-        resources,
-        clients,
-        docks,
-        professionals,
-        equipment,
-        products,
-        skills,
+        unavailabilities,
+        allClients: clients,
+        allDocks: docks,
+        allProfessionals: professionals,
+        allEquipment: equipment,
+        allProducts: products,
+        allSkills: skills,
+        allUsers: users,
         loading,
         error,
-        refreshData
+        refreshData,
+        dataVersion
     };
 
     return (
@@ -121,5 +125,3 @@ export const DataProvider = ({ children }) => {
         </DataContext.Provider>
     );
 };
-
-export default DataContext;

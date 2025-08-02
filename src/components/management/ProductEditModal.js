@@ -1,21 +1,20 @@
 // src/components/management/ProductEditModal.js
 import React, { useState, useEffect, useMemo } from 'react';
 import { useData } from '../../contexts/DataContext';
-import { useAuth } from '../../contexts/AuthContext'; // Importado para permissões
+import { useAuth } from '../../contexts/AuthContext';
 import resourceService from '../../services/resourceService';
 import ResourceSearchableList from './ResourceSearchableList';
 import { format, addMonths } from 'date-fns';
 
 const ProductEditModal = ({ isOpen, onClose, product }) => {
     const { allEquipment, allProfessionals } = useData();
-    const { role, department } = useAuth(); // Obter role e departamento do utilizador logado
+    const { role, department } = useAuth();
     const [formData, setFormData] = useState(null);
     const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
     const timeOptions = useMemo(() => Array.from({ length: 24 * 4 }, (_, i) => { const h = Math.floor(i / 4); const m = (i % 4) * 15; return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`; }), []);
 
     useEffect(() => {
         if (isOpen) {
-            // Se for um coordenador a criar, o departamento é o dele. Senão, o padrão é Turismo.
             const defaultDept = role === 'coordenador' ? department : 'Turismo';
             const defaultData = { name: '', department: defaultDept, defaultEquipment: [], defaultProfessionals: [], defaultStartTime: '09:00', defaultEndTime: '17:00', recurrence: { frequency: 'weekly', interval: 1, daysOfWeek: [], endCondition: 'never', endDate: format(addMonths(new Date(), 1), 'yyyy-MM-dd'), occurrences: 10 } };
             setFormData(product ? { ...defaultData, ...product } : defaultData);
@@ -24,19 +23,25 @@ const ProductEditModal = ({ isOpen, onClose, product }) => {
         }
     }, [product, isOpen, role, department]);
 
+    if (!isOpen || !formData) return null;
+
     const handleChange = (e) => { const { name, value } = e.target; setFormData(prev => ({ ...prev, [name]: value })); };
     const handleRecurrenceChange = (e) => { const { name, value } = e.target; setFormData(prev => ({ ...prev, recurrence: { ...prev.recurrence, [name]: value } })); };
     const handleWeekDayToggle = (dayIndex) => { setFormData(prev => { const daysOfWeek = prev.recurrence.daysOfWeek || []; const newDays = daysOfWeek.includes(dayIndex) ? daysOfWeek.filter(d => d !== dayIndex) : [...daysOfWeek, dayIndex]; return { ...prev, recurrence: { ...prev.recurrence, daysOfWeek: newDays.sort() } }; }); };
     const handleResourceToggle = (resourceName, type) => { setFormData(prev => { const list = prev[type] || []; const newList = list.includes(resourceName) ? list.filter(r => r !== resourceName) : [...list, resourceName]; return { ...prev, [type]: newList }; }); };
 
-    const handleSave = () => {
+    // ===== LÓGICA DE GUARDAR CORRIGIDA =====
+    const handleSave = async () => {
         if (formData && formData.name) {
-            resourceService.save('products', formData);
-            onClose();
+            try {
+                await resourceService.save('products', formData);
+                onClose(); // Fecha o modal apenas se a gravação for bem-sucedida
+            } catch (error) {
+                console.error("Erro ao guardar o produto:", error);
+                alert("Ocorreu um erro ao guardar o produto. Verifique a consola para mais detalhes.");
+            }
         }
     };
-
-    if (!isOpen || !formData) return null;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
@@ -50,7 +55,6 @@ const ProductEditModal = ({ isOpen, onClose, product }) => {
                                 <input type="text" name="name" value={formData.name} onChange={handleChange} className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md" />
                             </div>
                             <div>
-                                {/* ===== LÓGICA CONDICIONAL APLICADA AQUI ===== */}
                                 <label className="block text-sm font-medium text-gray-700">Departamento</label>
                                 {role === 'diretor' ? (
                                     <select name="department" value={formData.department} onChange={handleChange} className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md bg-white">

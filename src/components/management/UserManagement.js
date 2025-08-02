@@ -3,22 +3,70 @@ import React, { useMemo, useState } from 'react';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import resourceService from '../../services/resourceService';
-import { PlusIcon, PencilIcon, TrashIcon } from '../core/Icons'; // TrashIcon importado
+import { PlusIcon, PencilIcon, TrashIcon } from '../core/Icons';
 import UserEditModal from './UserEditModal';
 
 const UserManagement = () => {
-    const { allUsers } = useData();
+    // ===== CORREÇÃO APLICADA AQUI =====
+    const { allUsers = [] } = useData(); // Adicionado ` = [] ` como valor padrão
     const { user: currentUser } = useAuth();
     const [editingUser, setEditingUser] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    // ... (toda a lógica handleOpenModal, handleCloseModal, filteredUsers, etc. continua igual)
     const handleOpenModal = (userToEdit) => { setEditingUser(userToEdit); setIsModalOpen(true); };
     const handleCloseModal = () => { setIsModalOpen(false); setEditingUser(null); };
-    const filteredUsers = useMemo(() => { if (!currentUser) return []; if (currentUser.role === 'diretor') { return allUsers; } if (currentUser.role === 'coordenador') { return allUsers.filter(user => user.role === 'colaborador'); } return []; }, [allUsers, currentUser]);
-    const handleDeleteUser = (userToDelete) => { if (!currentUser) { alert("Não foi possível identificar o utilizador atual."); return; } if (currentUser.email === userToDelete.email) { alert("Você não pode excluir a si mesmo."); return; } if (currentUser.role === 'diretor') { if (userToDelete.status === 'pending_deletion') { if (userToDelete.markedForDeletionBy === currentUser.email) { alert("A exclusão deve ser confirmada por um diretor diferente."); return; } if (window.confirm(`CONFIRMAÇÃO FINAL: Excluir permanentemente ${userToDelete.name}?`)) { resourceService.delete('users', userToDelete.id); } } else { if (window.confirm(`Marcar ${userToDelete.name} para exclusão?`)) { const updatedUser = { ...userToDelete, status: 'pending_deletion', markedForDeletionBy: currentUser.email }; resourceService.save('users', updatedUser); } } } else if (currentUser.role === 'coordenador' && userToDelete.role === 'colaborador') { if (window.confirm(`Tem a certeza que quer excluir o colaborador ${userToDelete.name}?`)) { resourceService.delete('users', userToDelete.id); } } else { alert("Você não tem permissão para executar esta ação."); } };
-    const getStatusClass = (status) => { switch (status) { case 'active': return 'bg-green-100 text-green-800'; case 'pending_deletion': return 'bg-yellow-100 text-yellow-800'; default: return 'bg-gray-100 text-gray-800'; } };
 
+    const filteredUsers = useMemo(() => {
+        if (!currentUser || !allUsers) return []; // Proteção adicional
+        if (currentUser.role === 'diretor') {
+            return allUsers;
+        }
+        if (currentUser.role === 'coordenador') {
+            return allUsers.filter(user => user.role === 'colaborador');
+        }
+        return [];
+    }, [allUsers, currentUser]);
+
+    const handleDeleteUser = (userToDelete) => {
+        if (!currentUser) {
+            alert("Não foi possível identificar o utilizador atual.");
+            return;
+        }
+        if (currentUser.email === userToDelete.email) {
+            alert("Você não pode excluir a si mesmo.");
+            return;
+        }
+        if (currentUser.role === 'diretor') {
+            if (userToDelete.status === 'pending_deletion') {
+                if (userToDelete.markedForDeletionBy === currentUser.email) {
+                    alert("A exclusão deve ser confirmada por um diretor diferente.");
+                    return;
+                }
+                if (window.confirm(`CONFIRMAÇÃO FINAL: Excluir permanentemente ${userToDelete.name}?`)) {
+                    resourceService.delete('users', userToDelete.id);
+                }
+            } else {
+                if (window.confirm(`Marcar ${userToDelete.name} para exclusão?`)) {
+                    const updatedUser = { ...userToDelete, status: 'pending_deletion', markedForDeletionBy: currentUser.email };
+                    resourceService.save('users', updatedUser);
+                }
+            }
+        } else if (currentUser.role === 'coordenador' && userToDelete.role === 'colaborador') {
+            if (window.confirm(`Tem a certeza que quer excluir o colaborador ${userToDelete.name}?`)) {
+                resourceService.delete('users', userToDelete.id);
+            }
+        } else {
+            alert("Você não tem permissão para executar esta ação.");
+        }
+    };
+
+    const getStatusClass = (status) => {
+        switch (status) {
+            case 'active': return 'bg-green-100 text-green-800';
+            case 'pending_deletion': return 'bg-yellow-100 text-yellow-800';
+            default: return 'bg-gray-100 text-gray-800';
+        }
+    };
 
     return (
         <>
@@ -52,11 +100,9 @@ const UserManagement = () => {
                                     <td className="p-3"><span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusClass(user.status)}`}>{user.status}</span></td>
                                     <td className="p-3 flex items-center gap-4">
                                         <button onClick={() => handleOpenModal(user)} className="text-indigo-600 hover:text-indigo-800"><PencilIcon /></button>
-                                        {/* ===== ALTERAÇÃO AQUI ===== */}
                                         <button onClick={() => handleDeleteUser(user)} className="text-red-600 hover:text-red-800">
                                             <TrashIcon />
                                         </button>
-                                        {/* ========================== */}
                                     </td>
                                 </tr>
                             ))}

@@ -15,7 +15,7 @@ const MonthlyView = ({ currentDate, navigateToDay, events }) => {
     const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
     const days = eachDayOfInterval({ start: startDate, end: endDate });
 
-    const getResourceCode = (name) => allEquipment.find(r => r.name === name)?.code || name;
+    const getResourceCode = (name) => (allEquipment || []).find(r => r.name === name)?.code || name;
     
     const formatProfessionalName = (fullName) => {
         const parts = fullName.split(' ');
@@ -32,7 +32,7 @@ const MonthlyView = ({ currentDate, navigateToDay, events }) => {
         <div className="grid grid-cols-7 border-l border-t border-gray-200">
             {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((day, i) => <div key={i} className="text-center py-2 border-b border-r border-gray-200 bg-gray-100 text-sm font-bold text-gray-600">{day}</div>)}
             {days.map(day => {
-                const dayEvents = events
+                const dayEvents = (events || [])
                     .filter(event => event.type === 'Evento Padrão' && isSameDay(parseISO(event.start), day))
                     .sort((a, b) => parseISO(a.start) - parseISO(b.start));
                 return (
@@ -41,12 +41,21 @@ const MonthlyView = ({ currentDate, navigateToDay, events }) => {
                         <div className="flex flex-col gap-1">
                             {dayEvents.map(event => {
                                 const blinkClass = blinkingEvents[event.id] ? `blink-${blinkingEvents[event.id]}` : '';
-                                const client = allClients.find(c => c.id === event.clientId);
+                                const client = (allClients || []).find(c => c.id === event.clientId);
+                                const agency = event.agencyId ? (allClients || []).find(a => a.id === event.agencyId) : null;
                                 return (
                                     <div key={event.id} className={`p-1 rounded text-xs w-full ${getStatusColor(event.status)} ${blinkClass}`} onClick={(e) => { e.stopPropagation(); openEventModal(day, null, event); }}>
-                                        <p className="font-semibold truncate">{event.title}</p>
-                                        <p className="text-xs truncate">{event.department}</p>
-                                        {client && <p className="text-xs truncate flex items-center"><BriefcaseIcon className="h-3 w-3 mr-1 flex-shrink-0" />{client.name}</p>}
+                                        {/* ===== CORREÇÃO DE EXIBIÇÃO DO TÍTULO ===== */}
+                                        <p className="font-semibold truncate">
+                                            {event.title} - <span className="italic font-normal">{event.department}</span>
+                                        </p>
+                                        
+                                        {client && (
+                                            <p className="text-xs truncate flex items-center">
+                                                <BriefcaseIcon className="h-3 w-3 mr-1 flex-shrink-0" />
+                                                {client.name} {agency ? `(${agency.name})` : ''}
+                                            </p>
+                                        )}
                                         {event.equipment?.length > 0 && (
                                             <p className="text-xs truncate flex items-center"><ShipIcon className="h-3 w-3 mr-1 flex-shrink-0" />{event.equipment.map(e => getResourceCode(e.name)).join(', ')}</p>
                                         )}

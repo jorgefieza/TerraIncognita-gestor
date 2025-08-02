@@ -2,37 +2,31 @@
 import React, { useMemo } from 'react';
 import { useData } from '../../contexts/DataContext';
 import { useUI } from '../../contexts/UIContext';
-import { format, parseISO, isSameDay, subMinutes, addMinutes, differenceInMinutes } from 'date-fns';
+import { format, parseISO, isSameDay, differenceInMinutes } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { calculateLayout } from '../../utils/calculateLayout';
+import { getEventTimings } from '../../utils/eventUtils'; // <--- IMPORTADO
 import { ShipIcon, UsersIcon, BriefcaseIcon } from '../core/Icons';
 
 const DayColumn = ({ day, calendarStartHour, visibleHours, navigateToDay, isWeeklyView = false, events }) => {
     const { allEquipment, allClients, allSkills, allDocks, dataVersion } = useData();
     const { openEventModal, blinkingEvents } = useUI();
 
-    const getSkillName = (skillId) => allSkills.find(s => s.id === skillId)?.name || 'N/A';
+    const getSkillName = (skillId) => (allSkills || []).find(s => s.id === skillId)?.name || 'N/A';
     
-    const dayEvents = useMemo(() => events.filter(event => event.type === 'Evento Padrão' && isSameDay(parseISO(event.start), day)), [events, day, dataVersion]);
+    const dayEvents = useMemo(() => (events || []).filter(event => event.type === 'Evento Padrão' && isSameDay(parseISO(event.start), day)), [events, day, dataVersion]);
 
     const layoutEvents = useMemo(() => {
+        // ===== LÓGICA REATORIZADA PARA USAR A FUNÇÃO CENTRAL =====
         const eventsWithBuffer = dayEvents.map(event => {
-            const equipmentDetails = event.equipment?.map(eq => allEquipment.find(item => item.name === eq.name)).filter(Boolean) || [];
-            const equipmentPrepTime = equipmentDetails.length > 0 ? Math.max(0, ...equipmentDetails.map(eq => eq.preparationTime || 0)) : 0;
-            const equipmentCleanupTime = equipmentDetails.length > 0 ? Math.max(0, ...equipmentDetails.map(eq => eq.cleanupTime || 0)) : 0;
-
-            const boardingDock = allDocks.find(d => d.id === event.boardingPointId);
-            const disembarkingDock = allDocks.find(d => d.id === event.disembarkingPointId);
-            
-            const travelPrepTime = boardingDock?.travelTime || 0;
-            const travelReturnTime = disembarkingDock?.travelTime || 0;
-
-            const finalPrepTime = equipmentPrepTime + travelPrepTime;
-            const finalCleanupTime = equipmentCleanupTime + travelReturnTime;
-            
-            const start = subMinutes(parseISO(event.start), finalPrepTime);
-            const end = addMinutes(parseISO(event.end), finalCleanupTime);
-            return { ...event, bufferedStart: start, bufferedEnd: end, prepTime: finalPrepTime, cleanupTime: finalCleanupTime };
+            const timings = getEventTimings(event, allEquipment, allDocks);
+            return { 
+                ...event, 
+                bufferedStart: timings.startWithPrep, 
+                bufferedEnd: timings.endWithCleanup, 
+                prepTime: timings.totalPrepTime, 
+                cleanupTime: timings.totalCleanupTime 
+            };
         });
         
         const layoutableEvents = eventsWithBuffer.map(e => ({ ...e, start: e.bufferedStart, end: e.bufferedEnd }));
@@ -43,7 +37,7 @@ const DayColumn = ({ day, calendarStartHour, visibleHours, navigateToDay, isWeek
         });
     }, [dayEvents, calendarStartHour, visibleHours.length, allEquipment, allDocks, dataVersion]);
 
-    const getResourceCode = (name) => allEquipment.find(r => r.name === name)?.code || name;
+    const getResourceCode = (name) => (allEquipment || []).find(r => r.name === name)?.code || name;
     
     const formatProfessionalName = (fullName) => {
         const parts = fullName.split(' ');
@@ -75,18 +69,27 @@ const DayColumn = ({ day, calendarStartHour, visibleHours, navigateToDay, isWeek
                 {layoutEvents.map(event => {
                     const blinkClass = blinkingEvents[event.id] ? `blink-${blinkingEvents[event.id]}` : '';
                     const totalDurationMinutes = differenceInMinutes(event.bufferedEnd, event.bufferedStart);
-                    const client = allClients.find(c => c.id === event.clientId);
+                    const client = (allClients || []).find(c => c.id === event.clientId);
+                    const agency = event.agencyId ? (allClients || []).find(a => a.id === event.agencyId) : null;
+                    
                     return (
                         <div key={event.id} className={`absolute p-0 rounded-lg shadow-md cursor-pointer overflow-hidden border-l-4 ${getStatusColor(event.status)} ${blinkClass}`}
-                            style={{ top: event.top, height: event.height, left: `calc(${event.left} + 2px)`, width: `calc(${event.width} - 4px)` }}
+                            style={{ top: event.top, height: event.height, left: event.left, width: event.width }}
                             onClick={(e) => { e.stopPropagation(); openEventModal(parseISO(event.start), null, event); }}>
                             {event.prepTime > 0 && (<div className="absolute top-0 left-0 w-full bg-black opacity-10" style={{ height: `${(event.prepTime / totalDurationMinutes) * 100}%`, backgroundImage: 'repeating-linear-gradient(-45deg, transparent, transparent 5px, rgba(0,0,0,0.1) 5px, rgba(0,0,0,0.1) 10px)' }}></div>)}
                             {event.cleanupTime > 0 && (<div className="absolute bottom-0 left-0 w-full bg-black opacity-10" style={{ height: `${(event.cleanupTime / totalDurationMinutes) * 100}%`, backgroundImage: 'repeating-linear-gradient(-45deg, transparent, transparent 5px, rgba(0,0,0,0.1) 5px, rgba(0,0,0,0.1) 10px)' }}></div>)}
                             <div className="relative z-10 p-2 h-full flex flex-col justify-between">
                                 <div className="text-xs">
-                                    <p className="font-bold text-sm leading-tight mb-1">{event.title}</p>
-                                    <p className="italic text-gray-600">{event.department}</p>
-                                    {client && <p className="flex items-center"><BriefcaseIcon className="h-4 w-4 mr-1.5 flex-shrink-0" /> <span className="truncate">{client.name}</span></p>}
+                                    <p className="font-bold text-sm leading-tight mb-1">
+                                        {event.title} - <span className="italic font-normal text-gray-600">{event.department}</span>
+                                    </p>
+                                    
+                                    {client && (
+                                        <p className="flex items-center">
+                                            <BriefcaseIcon className="h-4 w-4 mr-1.5 flex-shrink-0" />
+                                            <span className="truncate">{client.name} {agency ? `(${agency.name})` : ''}</span>
+                                        </p>
+                                    )}
                                 </div>
                                 <div className="text-xs mt-1">
                                     {event.equipment && event.equipment.length > 0 && (

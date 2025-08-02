@@ -18,6 +18,7 @@ const DatePickerPopup = ({ onDateSelect, initialDate }) => {
         }
     }, [isDatePickerOpen, initialDate]);
 
+    // A verificação foi movida para depois dos hooks
     if (!isDatePickerOpen) return null;
 
     const monthStart = startOfMonth(displayMonth);
