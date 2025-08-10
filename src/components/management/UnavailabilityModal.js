@@ -29,7 +29,6 @@ const UnavailabilityModal = ({ isOpen, onClose, resource }) => {
         }
     }, [isOpen]);
 
-    // A verificação foi movida para depois dos hooks, que é o correto.
     if (!isOpen) return null;
 
     const handleDayClick = (day) => {
@@ -60,19 +59,19 @@ const UnavailabilityModal = ({ isOpen, onClose, resource }) => {
             status: 'Confirmado'
         };
         
-        await eventService.save(unavailabilityData);
-        
-        await eventService.updateConflictingEvents(
-            unavailabilityData.resourceName, 
-            unavailabilityData.resourceType, 
-            unavailabilityData.start, 
-            unavailabilityData.end
-        );
-        
-        setReason('');
-        setRange({ start: null, end: null });
-        setError('');
-        alert("Bloqueio de indisponibilidade guardado com sucesso!");
+        try {
+            await eventService.save(unavailabilityData);
+            
+            // ===== LINHA COM ERRO REMOVIDA DAQUI =====
+
+            setReason('');
+            setRange({ start: null, end: null });
+            setError('');
+            alert("Bloqueio de indisponibilidade guardado com sucesso!");
+        } catch (err) {
+            console.error("Erro ao guardar indisponibilidade:", err);
+            setError("Ocorreu um erro ao guardar. Por favor, tente novamente.");
+        }
     };
 
     const handleDelete = async (unavailabilityId) => {

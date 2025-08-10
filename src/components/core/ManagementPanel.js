@@ -3,7 +3,7 @@ import React, { useState, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useUI } from '../../contexts/UIContext';
 import useClickOutside from '../../utils/useClickOutside';
-import { NewspaperIcon, WrenchScrewdriverIcon, BriefcaseIcon, CubeIcon, ChartBarIcon, CogIcon, LogoutIcon } from './Icons';
+import { NewspaperIcon, UsersIcon, BriefcaseIcon, CubeIcon, ChartBarIcon, WrenchScrewdriverIcon, LogoutIcon } from './Icons';
 import ProfessionalsView from '../management/ProfessionalsView';
 import ResourceEditModal from '../management/ResourceEditModal';
 import ClientsView from '../management/ClientsView';
@@ -44,22 +44,29 @@ const ManagementPanel = () => {
             return newFilter;
         });
     };
+    
+    // ===== CORREÇÃO DA FUNÇÃO =====
+    // Agora, a função aceita um único objeto `resource` que já contém o `resourceType`.
+    const handleOpenResourceModal = (resource) => {
+        setEditingResource(resource);
+        setIsResourceModalOpen(true);
+    };
 
-    const handleOpenResourceModal = (resource, type) => { setEditingResource({ ...resource, resourceType: type }); setIsResourceModalOpen(true); };
-    const handleCloseResourceModal = () => { setIsResourceModalOpen(false); setEditingResource(null); };
+    const handleCloseResourceModal = () => {
+        setIsResourceModalOpen(false);
+        setEditingResource(null);
+    };
+    // =============================
 
     const handleOpenClientModal = (client) => { setEditingClient(client); setIsClientModalOpen(true); };
     const handleCloseClientModal = () => { setIsClientModalOpen(false); setEditingClient(null); };
-
     const handleOpenProductModal = (product) => { setEditingProduct(product); setIsProductModalOpen(true); };
     const handleCloseProductModal = () => { setIsProductModalOpen(false); setEditingProduct(null); };
-
     const handleOpenUserModal = (user) => { setEditingUser(user); setIsUserModalOpen(true); };
     const handleCloseUserModal = () => { setIsUserModalOpen(false); setEditingUser(null); };
-    
     const handleOpenUnavailabilityModal = (resource) => setUnavailabilityResource(resource);
     const handleCloseUnavailabilityModal = () => setUnavailabilityResource(null);
-    
+
     const renderContent = () => {
         switch (activeTab) {
             case 'plan': return <DailyPlanView />;
@@ -71,50 +78,74 @@ const ManagementPanel = () => {
             default: return <div className="p-6"><h3 className="text-xl font-bold">Em construção...</h3></div>;
         }
     };
+    
+    const NavButton = ({ tabId, label, icon: Icon, permission }) => {
+        if (!permission) return null;
+        return (
+            <button 
+                onClick={() => setActiveTab(tabId)}
+                className={`flex items-center p-3 rounded-md text-left w-full font-medium transition-colors duration-150 ${activeTab === tabId ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
+            >
+                <Icon className="w-5 h-5 mr-3" />
+                <span>{label}</span>
+            </button>
+        );
+    };
 
-    const Separator = () => <hr className="my-2 border-t border-gray-700" />;
+    const SectionTitle = ({ title }) => (
+        <h4 className="px-3 pt-4 pb-2 text-xs font-bold uppercase text-gray-500">{title}</h4>
+    );
 
     return (
         <>
             <div className={`fixed top-0 right-0 h-full w-full md:w-3/4 lg:w-2/3 bg-gray-50 shadow-2xl z-30 transform transition-transform duration-300 ease-in-out ${isManagementPanelOpen ? 'translate-x-0' : 'translate-x-full'}`}>
                 <div className="flex h-full">
                     <div className="w-64 bg-gray-800 text-white p-4 flex flex-col">
-                        <h2 className="text-lg font-semibold mb-8">Painel de Gestão</h2>
-                        <nav className="flex flex-col space-y-1 flex-grow">
+                        <h2 className="text-xl font-semibold mb-4 px-2">Painel de Gestão</h2>
+                        <nav className="flex flex-col flex-grow">
+                            <SectionTitle title="Navegação" />
+                            <NavButton tabId="plan" label="Plano do Dia" icon={NewspaperIcon} permission={permissions.canViewDailyPlan} />
+
+                            <SectionTitle title="Gestão" />
+                            <NavButton tabId="clients" label="Clientes" icon={BriefcaseIcon} permission={permissions.canManageClients} />
+                            <NavButton tabId="products" label="Produtos" icon={CubeIcon} permission={permissions.canManageProducts} />
+                            <NavButton tabId="professionals" label="Profissionais" icon={UsersIcon} permission={permissions.canManageResources} />
+
+                            <SectionTitle title="Administração" />
+                            <NavButton tabId="reports" label="Relatórios" icon={ChartBarIcon} permission={permissions.canViewReports} />
+                            <NavButton tabId="settings" label="Ajustes" icon={WrenchScrewdriverIcon} permission={permissions.canAccessSettings} />
+
                             {permissions.canViewAllDepartments && (
-                                <div className="relative p-3" ref={filterRef}>
-                                    <button onClick={() => setIsFilterOpen(prev => !prev)} className="w-full text-left text-sm font-medium text-gray-300 hover:text-white">
-                                        Filtro de Departamentos ({departmentFilter.size})
-                                    </button>
-                                    {isFilterOpen && (
-                                        <div className="mt-2 space-y-2">
-                                            {departments.map(dept => (
-                                                <label key={dept} className="flex items-center text-sm text-gray-300 cursor-pointer">
-                                                    <input type="checkbox" checked={departmentFilter.has(dept)} onChange={() => handleFilterChange(dept)} className="h-4 w-4 bg-gray-600 border-gray-500 text-indigo-500 rounded focus:ring-indigo-500"/>
-                                                    <span className="ml-2">{dept}</span>
-                                                </label>
-                                            ))}
-                                        </div>
-                                    )}
+                                <div className="mt-4 p-3 border-t border-gray-700">
+                                    <div className="relative" ref={filterRef}>
+                                        <button onClick={() => setIsFilterOpen(prev => !prev)} className="w-full text-left text-sm font-medium text-gray-400 hover:text-white">
+                                            Filtro de Departamentos ({departmentFilter.size})
+                                        </button>
+                                        {isFilterOpen && (
+                                            <div className="mt-2 space-y-2">
+                                                {departments.map(dept => (
+                                                    <label key={dept} className="flex items-center text-sm text-gray-300 cursor-pointer">
+                                                        <input type="checkbox" checked={departmentFilter.has(dept)} onChange={() => handleFilterChange(dept)} className="h-4 w-4 bg-gray-600 border-gray-500 text-indigo-500 rounded focus:ring-indigo-500"/>
+                                                        <span className="ml-2">{dept}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             )}
-                            <Separator />
-                            {permissions.canViewDailyPlan && <button onClick={() => setActiveTab('plan')} className={`flex items-center p-3 rounded-md text-left w-full ${activeTab === 'plan' ? 'bg-gray-900' : 'hover:bg-gray-700'}`}><NewspaperIcon /> Plano do Dia</button>}
-                            <Separator />
-                            {permissions.canManageClients && <button onClick={() => setActiveTab('clients')} className={`flex items-center p-3 rounded-md text-left w-full ${activeTab === 'clients' ? 'bg-gray-900' : 'hover:bg-gray-700'}`}><BriefcaseIcon /> Clientes</button>}
-                            {permissions.canManageProducts && <button onClick={() => setActiveTab('products')} className={`flex items-center p-3 rounded-md text-left w-full ${activeTab === 'products' ? 'bg-gray-900' : 'hover:bg-gray-700'}`}><CubeIcon /> Produtos</button>}
-                            {permissions.canManageResources && <button onClick={() => setActiveTab('professionals')} className={`flex items-center p-3 rounded-md text-left w-full ${activeTab === 'professionals' ? 'bg-gray-900' : 'hover:bg-gray-700'}`}><WrenchScrewdriverIcon /> Profissionais</button>}
-                            <Separator />
-                            {permissions.canViewReports && <button onClick={() => setActiveTab('reports')} className={`flex items-center p-3 rounded-md text-left w-full ${activeTab === 'reports' ? 'bg-gray-900' : 'hover:bg-gray-700'}`}><ChartBarIcon /> Relatórios</button>}
-                            {permissions.canAccessSettings && <button onClick={() => setActiveTab('settings')} className={`flex items-center p-3 rounded-md text-left w-full ${activeTab === 'settings' ? 'bg-gray-900' : 'hover:bg-gray-700'}`}><CogIcon className="w-5 h-5 mr-3"/></button>}
                         </nav>
-                        <button onClick={logout} className="p-3 flex items-center justify-center text-gray-400 hover:bg-gray-700 hover:text-white rounded-md"><LogoutIcon /> Sair</button>
+                        <div className="mt-auto border-t border-gray-700 pt-2">
+                            <button onClick={logout} className="p-3 flex items-center justify-center w-full text-gray-300 hover:bg-gray-700 hover:text-white rounded-md transition-colors duration-150">
+                                <LogoutIcon className="w-5 h-5 mr-3" />
+                                <span className="font-medium">Sair</span>
+                            </button>
+                        </div>
                     </div>
                     <div className="flex-1 overflow-y-auto">{renderContent()}</div>
                 </div>
             </div>
             {isManagementPanelOpen && <div className="fixed inset-0 bg-black bg-opacity-30 z-20" onClick={() => setManagementPanelOpen(false)}></div>}
-            
             <ResourceEditModal isOpen={isResourceModalOpen} onClose={handleCloseResourceModal} resource={editingResource} />
             <ClientEditModal isOpen={isClientModalOpen} onClose={handleCloseClientModal} client={editingClient} />
             <ProductEditModal isOpen={isProductModalOpen} onClose={handleCloseProductModal} product={editingProduct} />

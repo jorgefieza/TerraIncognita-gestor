@@ -9,28 +9,28 @@ const ResourceEditModal = ({ isOpen, onClose, resource }) => {
     const { allSkills } = useData();
     const { permissions } = useAuth();
     const [formData, setFormData] = useState(null);
-    const [hoverPriority, setHoverPriority] = useState(0);
-    const [hoverSkillRating, setHoverSkillRating] = useState({});
 
     useEffect(() => {
         if (resource) {
-            const defaultData = resource.resourceType === 'professionals' 
-                ? { name: '', email: '', phone: '', nif: '', iban: '', status: 'Ativo', priority: 3, skills: [], address: '' } 
+            const defaultData = resource.resourceType === 'professionals'
+                ? { name: '', email: '', phone: '', nif: '', iban: '', status: 'Ativo', priority: 3, skills: [], address: '' }
                 : { name: '', code: '', custoHora: 0, capacidade: 0, preparationTime: 0, cleanupTime: 0, minProfessionals: 0 };
             setFormData({ ...defaultData, ...resource });
-            setHoverPriority(0);
-            setHoverSkillRating({});
         } else {
             setFormData(null);
         }
     }, [resource]);
 
-    const handleChange = (e) => { const { name, value } = e.target; setFormData(prev => ({ ...prev, [name]: value })); };
-    
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
     const handleSkillToggle = (skillId) => {
         const currentSkills = formData.skills || [];
         const existingSkillIndex = currentSkills.findIndex(s => s.id === skillId);
         let newSkills;
+
         if (existingSkillIndex > -1) {
             newSkills = currentSkills.filter(s => s.id !== skillId);
         } else {
@@ -39,14 +39,16 @@ const ResourceEditModal = ({ isOpen, onClose, resource }) => {
         setFormData(prev => ({ ...prev, skills: newSkills }));
     };
 
-    const handleSkillRatingChange = (skillId, rating) => { 
-        const newSkills = formData.skills.map(s => s.id === skillId ? { ...s, rating } : s); 
-        setFormData(prev => ({ ...prev, skills: newSkills })); 
+    const handleSkillRatingChange = (skillId, rating) => {
+        const newSkills = formData.skills.map(s => s.id === skillId ? { ...s, rating } : s);
+        setFormData(prev => ({ ...prev, skills: newSkills }));
     };
 
-    const handleSkillCostChange = (skillId, cost) => { 
-        const newSkills = formData.skills.map(s => s.id === skillId ? { ...s, costPerHour: Number(cost) } : s); 
-        setFormData(prev => ({ ...prev, skills: newSkills })); 
+    const handleSkillCostChange = (skillId, cost) => {
+        const newSkills = formData.skills.map(s =>
+            s.id === skillId ? { ...s, costPerHour: Number(cost) } : s
+        );
+        setFormData(prev => ({ ...prev, skills: newSkills }));
     };
 
     const handleSave = () => {
@@ -58,7 +60,7 @@ const ResourceEditModal = ({ isOpen, onClose, resource }) => {
         resourceService.save(resourceType, data);
         onClose();
     };
-    
+
     if (!isOpen || !formData) return null;
 
     const isEditingDisabled = !!resource?.id && !permissions.canEditResources;
@@ -80,7 +82,7 @@ const ResourceEditModal = ({ isOpen, onClose, resource }) => {
                                         <div className="md:col-span-2"><label className="block text-sm font-medium text-gray-700">Endereço</label><input type="text" name="address" value={formData.address || ''} onChange={handleChange} className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md" /></div>
                                         <div className="md:col-span-2"><label className="block text-sm font-medium text-gray-700">IBAN</label><input type="text" name="iban" value={formData.iban || ''} onChange={handleChange} className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md" /></div>
                                         <div><label className="block text-sm font-medium text-gray-700">Status</label><select name="status" value={formData.status || 'Ativo'} onChange={handleChange} className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md bg-white"><option>Ativo</option><option>Inativo</option></select></div>
-                                        <div><label className="block text-sm font-medium text-gray-700">Prioridade</label><StarRating rating={formData.priority} setRating={(r) => setFormData(p => ({...p, priority: r}))} hoverRating={hoverPriority} setHoverRating={setHoverPriority} className="text-blue-500" /></div>
+                                        <div><label className="block text-sm font-medium text-gray-700">Prioridade</label><StarRating rating={formData.priority} setRating={(r) => setFormData(p => ({...p, priority: r}))} className="text-blue-500" /></div>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-2">Habilidades</label>
@@ -96,9 +98,19 @@ const ResourceEditModal = ({ isOpen, onClose, resource }) => {
                                                         </div>
                                                         {isChecked && (
                                                             <div className="ml-6 mt-1 flex items-center gap-4">
-                                                                <StarRating rating={skillData.rating} setRating={(r) => handleSkillRatingChange(skill.id, r)} hoverRating={hoverSkillRating[skill.id] || 0} setHoverRating={(rating) => setHoverSkillRating(prev => ({...prev, [skill.id]: rating}))} />
+                                                                <StarRating
+                                                                    rating={skillData.rating}
+                                                                    setRating={(r) => handleSkillRatingChange(skill.id, r)}
+                                                                />
                                                                 <div className="flex items-center">
-                                                                    <input type="number" value={skillData.costPerHour ?? ''} onChange={(e) => handleSkillCostChange(skill.id, e.target.value)} placeholder={`Padrão: ${skill.defaultCostPerHour || '0'}`} className="w-24 px-2 py-1 border border-gray-300 rounded-md text-sm disabled:bg-gray-100 disabled:cursor-not-allowed" disabled={!permissions.canSetCustomCosts}/>
+                                                                    <input
+                                                                        type="number"
+                                                                        value={skillData.costPerHour ?? ''}
+                                                                        onChange={(e) => handleSkillCostChange(skill.id, e.target.value)}
+                                                                        placeholder={`Padrão: ${skill.defaultCostPerHour || '0'}`}
+                                                                        className="w-24 px-2 py-1 border border-gray-300 rounded-md text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                                                        disabled={!permissions.canSetCustomCosts}
+                                                                    />
                                                                     <span className="ml-1 text-sm text-gray-600">€/h</span>
                                                                 </div>
                                                             </div>

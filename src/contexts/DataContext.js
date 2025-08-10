@@ -1,8 +1,8 @@
 // src/contexts/DataContext.js
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
-import eventService from '../services/eventService';
 import resourceService from '../services/resourceService';
+import { checkAndCancelOldEvents } from '../utils/eventStatusUpdater';
 
 const DataContext = createContext();
 
@@ -27,81 +27,56 @@ export const DataProvider = ({ children }) => {
 
     useEffect(() => {
         if (!user) {
-            setEvents([]);
-            setClients([]);
-            setDocks([]);
-            setProfessionals([]);
-            setEquipment([]);
-            setProducts([]);
-            setSkills([]);
-            setUsers([]);
-            setUnavailabilities([]);
+            // Limpa todos os estados se o utilizador fizer logout
+            const setters = [setEvents, setClients, setDocks, setProfessionals, setEquipment, setProducts, setSkills, setUsers, setUnavailabilities];
+            setters.forEach(setter => setter([]));
             setLoading(false);
             return;
         }
 
         setLoading(true);
-        
-        // ===== CORREÇÃO APLICADA AQUI =====
-        // A chamada a `eventService.get` agora recebe apenas um argumento (o callback), como esperado.
-        const unsubscribeEvents = eventService.get((eventsData, err) => {
-            if (err) {
-                console.error("Erro ao carregar eventos:", err);
-                setError(err);
-                return;
-            }
-            setEvents(eventsData);
-            const unavs = eventsData.filter(e => e.type === 'Indisponibilidade');
-            setUnavailabilities(unavs);
-            setDataVersion(v => v + 1);
-        });
 
-        const fetchStaticData = async () => {
-            try {
-                const [
-                    clientsData,
-                    docksData,
-                    professionalsData,
-                    equipmentData,
-                    productsData,
-                    skillsData,
-                    usersData
-                ] = await Promise.all([
-                    resourceService.getAll('clients'),
-                    resourceService.getAll('docks'),
-                    resourceService.getAll('professionals'),
-                    resourceService.getAll('equipment'),
-                    resourceService.getAll('products'),
-                    resourceService.getAll('skills'),
-                    resourceService.getAll('users')
-                ]);
+        const collectionsToSubscribe = {
+            events: (data) => {
+                // **FUNCIONALIDADE ADICIONADA: VERIFICADOR DE STATUS**
+                // Executa a verificação de cancelamento automático antes de definir os dados.
+                if (user) {
+                    checkAndCancelOldEvents(data, user);
+                }
 
-                setClients(clientsData);
-                setDocks(docksData);
-                setProfessionals(professionalsData);
-                setEquipment(equipmentData);
-                setProducts(productsData);
-                setSkills(skillsData);
-                setUsers(usersData);
-                
-            } catch (err) {
-                console.error("Falha ao carregar dados estáticos:", err);
-                setError(err);
-            } finally {
-                setLoading(false);
-            }
+                setEvents(data);
+                const unavs = data.filter(e => e.type === 'Indisponibilidade');
+                setUnavailabilities(unavs);
+            },
+            clients: setClients,
+            docks: setDocks,
+            professionals: setProfessionals,
+            equipment: setEquipment,
+            products: setProducts,
+            skills: setSkills,
+            users: setUsers,
         };
 
-        fetchStaticData();
+        const unsubscribes = Object.entries(collectionsToSubscribe).map(([collectionName, setter]) => {
+            return resourceService.get(collectionName, (data, err) => {
+                if (err) {
+                    console.error(`Erro ao carregar ${collectionName}:`, err);
+                    setError(err);
+                    return;
+                }
+                setter(data);
+                setDataVersion(v => v + 1);
+            });
+        });
+        
+        setLoading(false);
 
         return () => {
-            unsubscribeEvents();
+            unsubscribes.forEach(unsubscribe => unsubscribe());
         };
     }, [user]);
     
-    const refreshData = useCallback(() => {
-       // A lógica pode ser adicionada aqui se houver um caso de uso para isso.
-    }, []);
+    const refreshData = useCallback(() => {}, []);
 
     const contextValue = {
         events,

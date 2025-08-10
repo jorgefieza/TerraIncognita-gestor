@@ -36,7 +36,7 @@ const MonthlyView = ({ currentDate, navigateToDay, events }) => {
                     .filter(event => event.type === 'Evento Padrão' && isSameDay(parseISO(event.start), day))
                     .sort((a, b) => parseISO(a.start) - parseISO(b.start));
                 return (
-                    <div key={day.toString()} className={`border-r border-b border-gray-200 p-1 min-h-[120px] ${isSameMonth(day, currentDate) ? 'bg-white' : 'bg-gray-50'}`} onClick={() => openEventModal(day)}>
+                    <div key={day.toString()} className={`border-r border-b border-gray-200 p-1 min-h-[90px] md:min-h-[120px] ${isSameMonth(day, currentDate) ? 'bg-white' : 'bg-gray-50'}`} onClick={() => openEventModal(day)}>
                         <p className={`text-sm mb-1 cursor-pointer hover:font-bold ${isSameDay(day, new Date()) ? 'bg-indigo-600 text-white rounded-full w-6 h-6 flex items-center justify-center' : ''}`} onClick={(e) => { e.stopPropagation(); navigateToDay(day); }}>{format(day, 'd')}</p>
                         <div className="flex flex-col gap-1">
                             {dayEvents.map(event => {
@@ -45,7 +45,6 @@ const MonthlyView = ({ currentDate, navigateToDay, events }) => {
                                 const agency = event.agencyId ? (allClients || []).find(a => a.id === event.agencyId) : null;
                                 return (
                                     <div key={event.id} className={`p-1 rounded text-xs w-full ${getStatusColor(event.status)} ${blinkClass}`} onClick={(e) => { e.stopPropagation(); openEventModal(day, null, event); }}>
-                                        {/* ===== CORREÇÃO DE EXIBIÇÃO DO TÍTULO ===== */}
                                         <p className="font-semibold truncate">
                                             {event.title} - <span className="italic font-normal">{event.department}</span>
                                         </p>
